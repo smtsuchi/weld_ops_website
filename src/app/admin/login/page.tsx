@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get('callbackUrl') || '/admin';
@@ -58,6 +58,85 @@ export default function LoginPage() {
   };
 
   return (
+    <Paper
+      elevation={3}
+      sx={{
+        p: 4,
+        width: '100%',
+        maxWidth: 400,
+        mx: 2,
+      }}
+    >
+      <Stack spacing={3}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              bgcolor: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              mb: 1,
+            }}
+          >
+            <LockOutlinedIcon sx={{ color: 'white' }} />
+          </Box>
+          <Typography component="h1" variant="h5" sx={{ fontWeight: 'bold' }}>
+            Admin Login
+          </Typography>
+        </Box>
+
+        {error && <Alert severity="error">{error}</Alert>}
+
+        <form onSubmit={handleSubmit}>
+          <Stack spacing={2}>
+            <TextField
+              required
+              fullWidth
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <TextField
+              required
+              fullWidth
+              label="Password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              disabled={loading}
+            />
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              size="large"
+              disabled={loading}
+              sx={{ mt: 2 }}
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
+            </Button>
+          </Stack>
+        </form>
+      </Stack>
+    </Paper>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <Box
       sx={{
         minHeight: '100vh',
@@ -68,80 +147,9 @@ export default function LoginPage() {
         py: 4,
       }}
     >
-      <Paper
-        elevation={3}
-        sx={{
-          p: 4,
-          width: '100%',
-          maxWidth: 400,
-          mx: 2,
-        }}
-      >
-        <Stack spacing={3}>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-            }}
-          >
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                bgcolor: 'primary.main',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                mb: 1,
-              }}
-            >
-              <LockOutlinedIcon sx={{ color: 'white' }} />
-            </Box>
-            <Typography component="h1" variant="h5" sx={{ fontWeight: 'bold' }}>
-              Admin Login
-            </Typography>
-          </Box>
-
-          {error && <Alert severity="error">{error}</Alert>}
-
-          <form onSubmit={handleSubmit}>
-            <Stack spacing={2}>
-              <TextField
-                required
-                fullWidth
-                label="Email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                disabled={loading}
-              />
-              <TextField
-                required
-                fullWidth
-                label="Password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleChange}
-                disabled={loading}
-              />
-              <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                size="large"
-                disabled={loading}
-                sx={{ mt: 2 }}
-              >
-                {loading ? 'Signing in...' : 'Sign in'}
-              </Button>
-            </Stack>
-          </form>
-        </Stack>
-      </Paper>
+      <Suspense fallback={null}>
+        <LoginForm />
+      </Suspense>
     </Box>
   );
 } 
