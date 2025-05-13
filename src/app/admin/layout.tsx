@@ -1,68 +1,170 @@
-'use client';
+'use client'
 
-import { usePathname } from 'next/navigation';
-import Link from 'next/link';
-import { signOut } from 'next-auth/react';
+import { useState } from 'react'
+import { SessionProvider } from 'next-auth/react'
+import {
+  Box,
+  Drawer,
+  AppBar,
+  Toolbar,
+  List,
+  Typography,
+  Divider,
+  IconButton,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material'
+import MenuIcon from '@mui/icons-material/Menu'
+import DashboardIcon from '@mui/icons-material/Dashboard'
+import WorkIcon from '@mui/icons-material/Work'
+import ImageIcon from '@mui/icons-material/Image'
+import EmailIcon from '@mui/icons-material/Email'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+
+const drawerWidth = 240
+
+const menuItems = [
+  { text: 'Dashboard', icon: <DashboardIcon />, path: '/admin' },
+  { text: 'Services', icon: <WorkIcon />, path: '/admin/services' },
+  { text: 'Gallery', icon: <ImageIcon />, path: '/admin/gallery' },
+  { text: 'Messages', icon: <EmailIcon />, path: '/admin/messages' },
+]
+
+function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const pathname = usePathname()
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen)
+  }
+
+  const drawer = (
+    <Box>
+      <Toolbar>
+        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
+          Admin Panel
+        </Typography>
+      </Toolbar>
+      <Divider />
+      <List>
+        {menuItems.map((item) => (
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              component={Link}
+              href={item.path}
+              selected={pathname === item.path}
+              sx={{
+                '&.Mui-selected': {
+                  bgcolor: 'primary.light',
+                  '&:hover': {
+                    bgcolor: 'primary.light',
+                  },
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  color: pathname === item.path ? 'primary.main' : 'inherit',
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontWeight: pathname === item.path ? 'bold' : 'normal',
+                }}
+              />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  )
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <AppBar
+        position="fixed"
+        sx={{
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
+          bgcolor: 'background.paper',
+          color: 'text.primary',
+          boxShadow: 1,
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: 'none' } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" noWrap component="div">
+            {menuItems.find((item) => item.path === pathname)?.text || 'Admin Panel'}
+          </Typography>
+        </Toolbar>
+      </AppBar>
+
+      <Box
+        component="nav"
+        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+      >
+        <Drawer
+          variant={isMobile ? 'temporary' : 'permanent'}
+          open={isMobile ? mobileOpen : true}
+          onClose={handleDrawerToggle}
+          ModalProps={{
+            keepMounted: true, // Better open performance on mobile
+          }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: drawerWidth,
+              borderRight: '1px solid',
+              borderColor: 'divider',
+            },
+          }}
+        >
+          {drawer}
+        </Drawer>
+      </Box>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          bgcolor: 'background.default',
+        }}
+      >
+        <Toolbar /> {/* Spacer for AppBar */}
+        {children}
+      </Box>
+    </Box>
+  )
+}
 
 export default function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  const pathname = usePathname();
-
-  const navItems = [
-    { name: 'Dashboard', path: '/admin/dashboard' },
-    { name: 'Gallery', path: '/admin/gallery' },
-    { name: 'Messages', path: '/admin/messages' },
-  ];
-
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Admin Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <Link href="/admin/dashboard" className="text-xl font-bold text-gray-800">
-                  Admin Panel
-                </Link>
-              </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.path}
-                    href={item.path}
-                    className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                      pathname === item.path
-                        ? 'border-blue-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    }`}
-                  >
-                    {item.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center">
-              <button
-                onClick={() => signOut({ callbackUrl: '/admin/login' })}
-                className="ml-3 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-              >
-                Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <main className="py-10">
-        <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-          {children}
-        </div>
-      </main>
-    </div>
-  );
+    <SessionProvider>
+      <AdminLayoutContent>{children}</AdminLayoutContent>
+    </SessionProvider>
+  )
 } 

@@ -1,84 +1,143 @@
-export default function Services() {
-  const services = [
-    {
-      title: 'Custom Fabrication',
-      description: 'We specialize in creating custom metal fabrications tailored to your specific needs. Our team of expert welders can bring your designs to life with precision and quality.',
-      features: [
-        'Custom metal structures',
-        'Architectural elements',
-        'Industrial components',
-        'Artistic metalwork'
-      ]
-    },
-    {
-      title: 'Industrial Welding',
-      description: 'Our industrial welding services are designed to meet the demands of heavy-duty applications. We work with various materials and welding techniques to ensure the highest quality results.',
-      features: [
-        'Structural welding',
-        'Pipe welding',
-        'Heavy equipment repair',
-        'Industrial machinery maintenance'
-      ]
-    },
-    {
-      title: 'Repair & Maintenance',
-      description: 'Keep your equipment and structures in top condition with our comprehensive repair and maintenance services. We provide quick response times and lasting solutions.',
-      features: [
-        'Equipment repair',
-        'Structural repairs',
-        'Preventive maintenance',
-        'Emergency services'
-      ]
+'use client'
+
+import { useState, useEffect } from 'react'
+import { getServices } from '@/app/actions'
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardMedia,
+  Stack,
+  CircularProgress,
+} from '@mui/material'
+
+interface Service {
+  id: string
+  title: string
+  description: string
+  price: number | null
+  imageUrl: string | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+export default function ServicesPage() {
+  const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchServices = async () => {
+      try {
+        const response = await fetch('/api/services')
+        if (!response.ok) throw new Error('Failed to fetch services')
+        const data = await response.json()
+        setServices(data)
+      } catch (error) {
+        setError('Failed to load services')
+      } finally {
+        setLoading(false)
+      }
     }
-  ];
+
+    fetchServices()
+  }, [])
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 400,
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography color="error">{error}</Typography>
+      </Container>
+    )
+  }
 
   return (
-    <div className="py-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-center mb-12">Our Services</h1>
-        
-        <div className="space-y-16">
-          {services.map((service, index) => (
-            <div key={index} className="bg-white rounded-lg shadow-lg overflow-hidden">
-              <div className="p-8">
-                <h2 className="text-2xl font-bold mb-4">{service.title}</h2>
-                <p className="text-gray-600 mb-6">{service.description}</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {service.features.map((feature, featureIndex) => (
-                    <div key={featureIndex} className="flex items-center space-x-2">
-                      <svg
-                        className="h-5 w-5 text-blue-600"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+    <Box sx={{ py: { xs: 4, md: 8 } }}>
+      <Container maxWidth="lg">
+        <Stack spacing={6}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography
+              component="h1"
+              variant="h3"
+              color="text.primary"
+              sx={{ fontWeight: 'bold', mb: 2 }}
+            >
+              Our Services
+            </Typography>
+            <Typography variant="h6" color="text.secondary">
+              Explore our range of professional services designed to meet your needs.
+            </Typography>
+          </Box>
 
-        <div className="mt-16 text-center">
-          <h2 className="text-2xl font-bold mb-4">Need a Custom Solution?</h2>
-          <p className="text-gray-600 mb-8">
-            Contact us to discuss your specific requirements and get a free quote.
-          </p>
-          <a
-            href="/contact"
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors"
-          >
-            Contact Us
-          </a>
-        </div>
-      </div>
-    </div>
-  );
+          <Grid container spacing={4}>
+            {services.map((service) => (
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={service.id}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 3,
+                    },
+                  }}
+                >
+                  {service.imageUrl && (
+                    <CardMedia
+                      component="img"
+                      height="240"
+                      image={service.imageUrl}
+                      alt={service.title}
+                      sx={{
+                        objectFit: 'cover',
+                      }}
+                    />
+                  )}
+                  <CardContent>
+                    <Typography
+                      gutterBottom
+                      variant="h5"
+                      component="h2"
+                      color="text.primary"
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      {service.title}
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                      {service.description}
+                    </Typography>
+                    {service.price && (
+                      <Typography variant="h6" color="primary" sx={{ fontWeight: 'bold' }}>
+                        ${service.price.toFixed(2)}
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Stack>
+      </Container>
+    </Box>
+  )
 } 

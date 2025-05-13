@@ -1,86 +1,130 @@
 'use client';
 
-import Link from 'next/link';
-import { useState } from 'react';
+import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  Box,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material'
+import MenuIcon from '@mui/icons-material/Menu'
 
-const Navbar = () => {
-  const [isOpen, setIsOpen] = useState(false);
+const navItems = [
+  { name: 'Home', path: '/' },
+  { name: 'Services', path: '/services' },
+  { name: 'Gallery', path: '/gallery' },
+  { name: 'Contact', path: '/contact' },
+]
 
-  const navItems = [
-    { name: 'Home', path: '/' },
-    { name: 'Services', path: '/services' },
-    { name: 'Gallery', path: '/gallery' },
-    { name: 'Contact', path: '/contact' },
-  ];
+export default function Navbar() {
+  const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  const handleDrawerToggle = () => {
+    setMobileOpen(!mobileOpen)
+  }
+
+  const drawer = (
+    <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
+      <Typography variant="h6" sx={{ my: 2 }}>
+        Weld-Ops
+      </Typography>
+      <List>
+        {navItems.map((item) => (
+          <ListItem 
+            key={item.name} 
+            component={Link} 
+            href={item.path}
+            sx={{
+              color: 'inherit',
+              textDecoration: 'none',
+              '&.Mui-selected': {
+                backgroundColor: 'rgba(25, 118, 210, 0.08)',
+              },
+            }}
+          >
+            <ListItemText primary={item.name} />
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  )
 
   return (
-    <nav className="fixed w-full bg-white shadow-md z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="text-2xl font-bold text-gray-800">
-              Weld Ops
-            </Link>
-          </div>
-
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                href={item.path}
-                className="text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                {item.name}
-              </Link>
-            ))}
-          </div>
-
-          {/* Mobile Navigation Button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-gray-600 hover:text-gray-900 focus:outline-none"
+    <>
+      <AppBar position="static" color="default" elevation={1}>
+        <Toolbar>
+          {isMobile && (
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={handleDrawerToggle}
+              sx={{ mr: 2 }}
             >
-              <svg
-                className="h-6 w-6"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                {isOpen ? (
-                  <path d="M6 18L18 6M6 6l12 12" />
-                ) : (
-                  <path d="M4 6h16M4 12h16M4 18h16" />
-                )}
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Navigation Menu */}
-      {isOpen && (
-        <div className="md:hidden">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                href={item.path}
-                className="block px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
-                onClick={() => setIsOpen(false)}
-              >
-                {item.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
-    </nav>
-  );
-};
-
-export default Navbar; 
+              <MenuIcon />
+            </IconButton>
+          )}
+          <Typography
+            variant="h6"
+            component={Link}
+            href="/"
+            sx={{
+              flexGrow: 1,
+              textDecoration: 'none',
+              color: 'inherit',
+              fontWeight: 'bold',
+            }}
+          >
+            Weld-Ops
+          </Typography>
+          {!isMobile && (
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              {navItems.map((item) => (
+                <Button
+                  key={item.name}
+                  component={Link}
+                  href={item.path}
+                  color={pathname === item.path ? 'primary' : 'inherit'}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: pathname === item.path ? 'bold' : 'normal',
+                  }}
+                >
+                  {item.name}
+                </Button>
+              ))}
+            </Box>
+          )}
+        </Toolbar>
+      </AppBar>
+      <Drawer
+        variant="temporary"
+        anchor="left"
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile
+        }}
+        sx={{
+          display: { xs: 'block', sm: 'none' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
+        }}
+      >
+        {drawer}
+      </Drawer>
+    </>
+  )
+} 

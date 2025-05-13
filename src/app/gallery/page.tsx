@@ -1,95 +1,193 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import Image from 'next/image';
+import { useState, useEffect } from 'react'
+import { getGalleryImages } from '@/app/actions'
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardMedia,
+  Stack,
+  Dialog,
+  DialogContent,
+  IconButton,
+  useTheme,
+  useMediaQuery,
+  CircularProgress,
+} from '@mui/material'
+import CloseIcon from '@mui/icons-material/Close'
 
-export default function Gallery() {
-  // This will be replaced with data from the database
-  const [images] = useState([
-    {
-      id: 1,
-      src: '/placeholder-1.jpg',
-      alt: 'Welding Project 1',
-      category: 'Industrial'
-    },
-    {
-      id: 2,
-      src: '/placeholder-2.jpg',
-      alt: 'Welding Project 2',
-      category: 'Custom'
-    },
-    {
-      id: 3,
-      src: '/placeholder-3.jpg',
-      alt: 'Welding Project 3',
-      category: 'Repair'
-    },
-    // Add more placeholder images as needed
-  ]);
+interface GalleryImage {
+  id: string
+  title: string
+  description: string | null
+  imageUrl: string
+  order: number
+}
 
-  const [selectedImage, setSelectedImage] = useState<number | null>(null);
+export default function GalleryPage() {
+  const [images, setImages] = useState<GalleryImage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await fetch('/api/gallery')
+        if (!response.ok) throw new Error('Failed to fetch gallery images')
+        const data = await response.json()
+        setImages(data)
+      } catch (error) {
+        setError('Failed to load gallery images')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchImages()
+  }, [])
+
+  const handleImageClick = (imageUrl: string) => {
+    setSelectedImage(imageUrl)
+  }
+
+  const handleClose = () => {
+    setSelectedImage(null)
+  }
+
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: 400,
+        }}
+      >
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Typography color="error">{error}</Typography>
+      </Container>
+    )
+  }
 
   return (
-    <div className="py-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h1 className="text-4xl font-bold text-center mb-12">Our Work</h1>
-        
-        {/* Image Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {images.map((image) => (
-            <div
-              key={image.id}
-              className="relative aspect-square cursor-pointer overflow-hidden rounded-lg shadow-lg hover:shadow-xl transition-shadow"
-              onClick={() => setSelectedImage(image.id)}
+    <Box sx={{ py: { xs: 4, md: 8 } }}>
+      <Container maxWidth="lg">
+        <Stack spacing={6}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography
+              component="h1"
+              variant="h3"
+              color="text.primary"
+              sx={{ fontWeight: 'bold', mb: 2 }}
             >
-              <Image
-                src={image.src}
-                alt={image.alt}
-                fill
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 transition-opacity flex items-center justify-center">
-                <span className="text-white opacity-0 hover:opacity-100 transition-opacity">
-                  {image.alt}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+              Our Gallery
+            </Typography>
+            <Typography variant="h6" color="text.secondary">
+              Take a look at our recent work and projects.
+            </Typography>
+          </Box>
 
-        {/* Image Modal */}
-        {selectedImage && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedImage(null)}
-          >
-            <div className="relative max-w-4xl w-full aspect-video">
-              <Image
-                src={images.find(img => img.id === selectedImage)?.src || ''}
-                alt={images.find(img => img.id === selectedImage)?.alt || ''}
-                fill
-                className="object-contain"
-              />
-              <button
-                className="absolute top-4 right-4 text-white hover:text-gray-300"
-                onClick={() => setSelectedImage(null)}
-              >
-                <svg
-                  className="h-8 w-8"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+          <Grid container spacing={4}>
+            {images.map((image) => (
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={image.id}>
+                <Card
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 3,
+                    },
+                  }}
+                  onClick={() => handleImageClick(image.imageUrl)}
                 >
-                  <path d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+                  <CardMedia
+                    component="img"
+                    height="240"
+                    image={image.imageUrl}
+                    alt={image.title}
+                    sx={{
+                      objectFit: 'cover',
+                    }}
+                  />
+                  <CardContent>
+                    <Typography
+                      gutterBottom
+                      variant="h6"
+                      component="h2"
+                      color="text.primary"
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      {image.title}
+                    </Typography>
+                    {image.description && (
+                      <Typography variant="body2" color="text.secondary">
+                        {image.description}
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Stack>
+      </Container>
+
+      <Dialog
+        open={!!selectedImage}
+        onClose={handleClose}
+        maxWidth="lg"
+        fullScreen={isMobile}
+      >
+        <DialogContent sx={{ p: 0, position: 'relative' }}>
+          <IconButton
+            onClick={handleClose}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              top: 8,
+              color: 'white',
+              bgcolor: 'rgba(0, 0, 0, 0.5)',
+              '&:hover': {
+                bgcolor: 'rgba(0, 0, 0, 0.7)',
+              },
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+          {selectedImage && (
+            <Box
+              component="img"
+              src={selectedImage}
+              alt="Gallery Image"
+              sx={{
+                width: '100%',
+                height: 'auto',
+                maxHeight: '90vh',
+                objectFit: 'contain',
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </Box>
+  )
 } 
