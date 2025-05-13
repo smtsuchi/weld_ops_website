@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Button,
@@ -20,7 +20,8 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import { getServices } from '@/app/actions'
+import { getServices, createService, updateService, deleteService } from '@/app/actions'
+import { junit } from 'node:test/reporters'
 
 
 interface Service {
@@ -90,6 +91,8 @@ export default function ServicesPage() {
   })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchServices = async () => {
@@ -121,6 +124,10 @@ export default function ServicesPage() {
     setOpen(false)
     setEditingService(null)
     setError(null)
+    setPreviewUrl(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handleEdit = (service: Service) => {
@@ -135,61 +142,44 @@ export default function ServicesPage() {
   }
 
   const handleDelete = async (service: Service) => {
-    if (!confirm('Are you sure you want to delete this service?')) return
+    if (!confirm('Are you sure you want to delete this service?')) return;
 
     try {
-      const response = await fetch(`/api/services/${service.id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) throw new Error('Failed to delete service')
-
-      setServices(services.filter((s) => s.id !== service.id))
+      setLoading(true);
+      await deleteService(service.id);
+      setServices(services.filter((s) => s.id !== service.id));
     } catch (error) {
-      setError('Failed to delete service')
+      setError('Failed to delete service');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
     try {
-      const data = {
-        ...formData,
-        price: formData.price ? parseFloat(formData.price) : null,
-      }
+      const form = e.currentTarget;
+      const formData = new FormData(form);
 
-      const response = await fetch(
-        editingService
-          ? `/api/services/${editingService.id}`
-          : '/api/services',
-        {
-          method: editingService ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(data),
-        }
-      )
-
-      if (!response.ok) throw new Error('Failed to save service')
-
-      const savedService = await response.json()
-      
       if (editingService) {
-        setServices(services.map((s) => 
-          s.id === savedService.id ? savedService : s
-        ))
+        await updateService(editingService.id, formData);
       } else {
-        setServices([...services, savedService])
+        await createService(formData);
       }
 
-      handleClose()
-    } catch (error) {
-      setError('Failed to save service')
+      // Refresh the services list
+      const updatedServices = await getServices();
+      setServices(updatedServices);
+      handleClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -197,6 +187,39 @@ export default function ServicesPage() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      setPreviewUrl(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      setPreviewUrl(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setError(null);
+  };
 
   return (
     <Box>
@@ -261,54 +284,73 @@ export default function ServicesPage() {
       </Paper>
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingService ? 'Edit Service' : 'Add New Service'}
+        </DialogTitle>
         <form onSubmit={handleSubmit}>
-          <DialogTitle>
-            {editingService ? 'Edit Service' : 'Add New Service'}
-          </DialogTitle>
           <DialogContent>
-            <Stack spacing={3} sx={{ mt: 1 }}>
+            <Stack spacing={2}>
               <TextField
-                label="Title"
                 name="title"
-                required
+                label="Title"
                 fullWidth
-                value={formData.title}
-                onChange={handleChange}
+                required
+                defaultValue={editingService?.title}
               />
               <TextField
-                label="Description"
                 name="description"
-                required
+                label="Description"
                 fullWidth
+                required
                 multiline
                 rows={4}
-                value={formData.description}
-                onChange={handleChange}
+                defaultValue={editingService?.description}
               />
               <TextField
-                label="Price"
                 name="price"
+                label="Price"
                 type="number"
                 fullWidth
-                value={formData.price}
-                onChange={handleChange}
-                InputProps={{
-                  startAdornment: '$',
-                }}
+                required
+                inputProps={{ step: '0.01', min: '0' }}
+                defaultValue={editingService?.price}
               />
-              <TextField
-                label="Image URL"
-                name="imageUrl"
-                fullWidth
-                value={formData.imageUrl}
-                onChange={handleChange}
-              />
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Image
+                </Typography>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  required={!editingService}
+                  onChange={handleFileChange}
+                  style={{ display: 'block', marginTop: '8px' }}
+                />
+                {(previewUrl || editingService?.imageUrl) && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" display="block" gutterBottom>
+                      {editingService ? 'Current image:' : 'Preview:'}
+                    </Typography>
+                    <img
+                      src={previewUrl || editingService?.imageUrl || undefined}
+                      alt="Preview"
+                      style={{
+                        maxWidth: '200px',
+                        maxHeight: '200px',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  </Box>
+                )}
+              </Box>
             </Stack>
           </DialogContent>
           <DialogActions>
             <Button onClick={handleClose}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingService ? 'Save Changes' : 'Add Service'}
+            <Button type="submit" variant="contained" disabled={loading}>
+              {loading ? 'Saving...' : 'Save'}
             </Button>
           </DialogActions>
         </form>

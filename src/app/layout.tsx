@@ -1,4 +1,5 @@
 import './globals.css'
+import '@fontsource/oswald/700.css';
 import { Inter } from 'next/font/google'
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter'
 import { ThemeProvider, createTheme } from '@mui/material/styles'

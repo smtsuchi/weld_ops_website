@@ -15,11 +15,13 @@ import {
   DialogActions,
   Button,
   CircularProgress,
+  Toolbar,
 } from '@mui/material'
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid'
+import { DataGrid, GridColDef, GridRenderCellParams, GridRowSelectionModel } from '@mui/x-data-grid'
 import DeleteIcon from '@mui/icons-material/Delete'
 import EmailIcon from '@mui/icons-material/Email'
 import MarkEmailReadIcon from '@mui/icons-material/MarkEmailRead'
+import { getMessages, markMessagesAsRead, deleteMessages } from '@/app/actions'
 
 interface Message {
   id: string
@@ -105,28 +107,33 @@ const columns: GridColDef[] = [
   },
 ]
 
+const initialSelectedIds: GridRowSelectionModel = {
+  type: 'include',
+  ids: new Set(),
+}
+
 export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null)
+  const [selectedIds, setSelectedIds] = useState<GridRowSelectionModel>(initialSelectedIds)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
 
-//   useEffect(() => {
-//     const fetchMessages = async () => {
-//       try {
-//         const response = await fetch('/api/messages')
-//         if (!response.ok) throw new Error('Failed to fetch messages')
-//         const data = await response.json()
-//         setMessages(data)
-//       } catch (error) {
-//         setError('Failed to load messages')
-//       } finally {
-//         setLoading(false)
-//       }
-//     }
+  useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const data = await getMessages()
+        setMessages(data)
+      } catch (error) {
+        setError('Failed to load messages')
+      } finally {
+        setLoading(false)
+      }
+    }
 
-//     fetchMessages()
-//   }, [])
+    fetchMessages()
+  }, [])
 
   const handleView = (message: Message) => {
     setSelectedMessage(message)
@@ -172,6 +179,83 @@ export default function MessagesPage() {
       setError('Failed to mark message as read')
     }
   }
+
+  const handleSelectionChange = (newSelection: GridRowSelectionModel) => {
+    setSelectedIds(newSelection)
+  }
+
+  const handleMassDelete = async () => {
+    if (selectedIds.ids.size === 0) return
+    if (!confirm(`Are you sure you want to delete ${selectedIds.ids.size} messages?`)) return
+
+    try {
+      setActionLoading(true)
+      await deleteMessages(Array.from(selectedIds.ids).map(id => id.toString()))
+      setMessages(messages.filter((m) => !selectedIds.ids.has(m.id)))
+      setSelectedIds(initialSelectedIds)
+    } catch (error) {
+      setError('Failed to delete messages')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleMassMarkAsRead = async () => {
+    if (selectedIds.ids.size === 0) return
+
+    try {
+      setActionLoading(true)
+      await markMessagesAsRead(Array.from(selectedIds.ids).map(id => id.toString()))
+      setMessages(
+        messages.map((m) =>
+          selectedIds.ids.has(m.id) ? { ...m, read: true } : m
+        )
+      )
+      setSelectedIds(initialSelectedIds)
+    } catch (error) {
+      setError('Failed to mark messages as read')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const CustomToolbar = () => (
+    <Toolbar
+      sx={{
+        p: 2,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderBottom: 1,
+        borderColor: 'divider',
+      }}
+    >
+      <Typography variant="h6" component="div">
+        {selectedIds.ids.size > 0
+          ? `${selectedIds.ids.size} message${selectedIds.ids.size > 1 ? 's' : ''} selected`
+          : 'All Messages'}
+      </Typography>
+      {selectedIds.ids.size > 0 && (
+        <Stack direction="row" spacing={1}>
+          <Button
+            startIcon={<MarkEmailReadIcon />}
+            onClick={handleMassMarkAsRead}
+            disabled={actionLoading}
+          >
+            Mark as Read
+          </Button>
+          <Button
+            startIcon={<DeleteIcon />}
+            onClick={handleMassDelete}
+            color="error"
+            disabled={actionLoading}
+          >
+            Delete
+          </Button>
+        </Stack>
+      )}
+    </Toolbar>
+  )
 
   return (
     <Box>
@@ -223,7 +307,18 @@ export default function MessagesPage() {
               },
             }}
             pageSizeOptions={[10]}
+            checkboxSelection
             disableRowSelectionOnClick
+            onRowSelectionModelChange={handleSelectionChange}
+            rowSelectionModel={selectedIds}
+            slots={{
+              toolbar: CustomToolbar,
+            }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+              },
+            }}
           />
         )}
       </Paper>

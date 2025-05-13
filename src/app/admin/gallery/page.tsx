@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Button,
@@ -26,7 +26,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
-import { getGalleryImages } from '@/app/actions'
+import { getGalleryImages, createGalleryImage, updateGalleryImage, deleteGalleryImage } from '@/app/actions'
 
 interface GalleryImage {
   id: string
@@ -49,6 +49,8 @@ export default function GalleryPage() {
   })
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -75,10 +77,14 @@ export default function GalleryPage() {
     })
   }
 
-  const handleClose = () => {
+  const handleCloseDialog = () => {
     setOpen(false)
     setEditingImage(null)
-    setError(null)
+    setFormData({ title: '', description: '', imageUrl: '' })
+    setPreviewUrl(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handleEdit = (image: GalleryImage) => {
@@ -92,20 +98,18 @@ export default function GalleryPage() {
   }
 
   const handleDelete = async (image: GalleryImage) => {
-    if (!confirm('Are you sure you want to delete this image?')) return
+    if (!confirm('Are you sure you want to delete this image?')) return;
 
     try {
-      const response = await fetch(`/api/gallery/${image.id}`, {
-        method: 'DELETE',
-      })
-
-      if (!response.ok) throw new Error('Failed to delete image')
-
-      setImages(images.filter((i) => i.id !== image.id))
+      setLoading(true);
+      await deleteGalleryImage(image.id);
+      setImages(images.filter((i) => i.id !== image.id));
     } catch (error) {
-      setError('Failed to delete image')
+      setError('Failed to delete image');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   const handleMove = async (image: GalleryImage, direction: 'up' | 'down') => {
     const currentIndex = images.findIndex((i) => i.id === image.id)
@@ -139,41 +143,31 @@ export default function GalleryPage() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
 
     try {
-      const response = await fetch(
-        editingImage
-          ? `/api/gallery/${editingImage.id}`
-          : '/api/gallery',
-        {
-          method: editingImage ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        }
-      )
+      const form = e.currentTarget;
+      const formData = new FormData(form);
 
-      if (!response.ok) throw new Error('Failed to save image')
-
-      const savedImage = await response.json()
-      
       if (editingImage) {
-        setImages(images.map((i) => 
-          i.id === savedImage.id ? savedImage : i
-        ))
+        await updateGalleryImage(editingImage.id, formData);
       } else {
-        setImages([...images, savedImage])
+        await createGalleryImage(formData);
       }
 
-      handleClose()
-    } catch (error) {
-      setError('Failed to save image')
+      // Refresh the gallery images
+      const updatedImages = await getGalleryImages();
+      setImages(updatedImages);
+      handleCloseDialog();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -181,6 +175,39 @@ export default function GalleryPage() {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please select an image file');
+      setPreviewUrl(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image size should be less than 5MB');
+      setPreviewUrl(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
+    }
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setError(null);
+  };
 
   return (
     <Box>
@@ -299,44 +326,65 @@ export default function GalleryPage() {
         </Grid>
       )}
 
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog open={open} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingImage ? 'Edit Image' : 'Add New Image'}
+        </DialogTitle>
         <form onSubmit={handleSubmit}>
-          <DialogTitle>
-            {editingImage ? 'Edit Image' : 'Add New Image'}
-          </DialogTitle>
           <DialogContent>
-            <Stack spacing={3} sx={{ mt: 1 }}>
+            <Stack spacing={2}>
               <TextField
-                label="Title"
                 name="title"
-                required
+                label="Title"
                 fullWidth
-                value={formData.title}
-                onChange={handleChange}
+                required
+                defaultValue={editingImage?.title}
               />
               <TextField
-                label="Description"
                 name="description"
+                label="Description"
                 fullWidth
-                multiline
-                rows={3}
-                value={formData.description}
-                onChange={handleChange}
-              />
-              <TextField
-                label="Image URL"
-                name="imageUrl"
                 required
-                fullWidth
-                value={formData.imageUrl}
-                onChange={handleChange}
+                multiline
+                rows={4}
+                defaultValue={editingImage?.description}
               />
+              <Box>
+                <Typography variant="subtitle2" gutterBottom>
+                  Image
+                </Typography>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  required={!editingImage}
+                  onChange={handleFileChange}
+                  style={{ display: 'block', marginTop: '8px' }}
+                />
+                {(previewUrl || editingImage?.imageUrl) && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" display="block" gutterBottom>
+                      {editingImage ? 'Current image:' : 'Preview:'}
+                    </Typography>
+                    <img
+                      src={previewUrl || editingImage?.imageUrl}
+                      alt="Preview"
+                      style={{
+                        maxWidth: '200px',
+                        maxHeight: '200px',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  </Box>
+                )}
+              </Box>
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose}>Cancel</Button>
-            <Button type="submit" variant="contained">
-              {editingImage ? 'Save Changes' : 'Add Image'}
+            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={loading}>
+              {loading ? 'Saving...' : 'Save'}
             </Button>
           </DialogActions>
         </form>

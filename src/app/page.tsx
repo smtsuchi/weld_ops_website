@@ -109,7 +109,7 @@ export default function Home() {
             <Grid size={{ xs: 12, md: 6 }}>
               <Box
                 component="img"
-                src="/hero-image.jpg"
+                src="/background.avif"
                 alt="Welding Services"
                 sx={{
                   width: '100%',

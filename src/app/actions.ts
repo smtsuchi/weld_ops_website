@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { put, del } from '@vercel/blob'
 
 // Gallery actions
 export async function getGalleryImages() {
@@ -45,79 +46,156 @@ export async function getStats() {
 }
 
 // Admin services actions
-export async function createService(data: {
-  title: string
-  description: string
-  price?: number
-  imageUrl?: string
-}) {
-  const service = await prisma.service.create({
+export async function createService(formData: FormData) {  
+  const title = formData.get('title') as string
+  const description = formData.get('description') as string
+  const price = parseFloat(formData.get('price') as string)
+  const imageFile = formData.get('image') as File
+
+  if (!title || !description || !price || !imageFile) {
+    throw new Error('Missing required fields')
+  }
+
+  const imageUrl = await uploadImage(imageFile)
+
+  return prisma.service.create({
     data: {
-      title: data.title,
-      description: data.description,
-      price: data.price ? parseFloat(data.price.toString()) : null,
-      imageUrl: data.imageUrl || null,
+      title,
+      description,
+      price,
+      imageUrl,
     },
   })
-  return service
 }
 
-export async function updateService(data: {
-  id: string
-  title: string
-  description: string
-  price?: number
-  imageUrl?: string
-}) {
-  const service = await prisma.service.update({
-    where: { id: data.id },
-    data: {
-      title: data.title,
-      description: data.description,
-      price: data.price ? parseFloat(data.price.toString()) : null,
-      imageUrl: data.imageUrl || null,
-    },
+export async function updateService(id: string, formData: FormData) {  
+  const title = formData.get('title') as string
+  const description = formData.get('description') as string
+  const price = parseFloat(formData.get('price') as string)
+  const imageFile = formData.get('image') as File | null
+
+  if (!title || !description || !price) {
+    throw new Error('Missing required fields')
+  }
+
+  const data: any = {
+    title,
+    description,
+    price,
+  }
+
+  if (imageFile) {
+    data.imageUrl = await uploadImage(imageFile)
+  }
+
+  return prisma.service.update({
+    where: { id },
+    data,
   })
-  return service
 }
 
-export async function deleteService(id: string) {
+async function deleteBlobImage(url: string) {  
+  if (!url) return;
+  
+  try {
+    // Extract the blob ID from the URL
+    const blobId = url.split('/').pop();
+    if (blobId) {
+      await del(blobId);
+    }
+  } catch (error) {
+    console.error('Error deleting blob image:', error);
+  }
+}
+
+export async function deleteService(id: string) {  
+  // Get the service to get the image URL
+  const service = await prisma.service.findUnique({
+    where: { id },
+    select: { imageUrl: true },
+  });
+
+  // Delete the service
   await prisma.service.delete({
     where: { id },
-  })
+  });
+
+  // Delete the image from blob storage if it exists
+  if (service?.imageUrl) {
+    await deleteBlobImage(service.imageUrl);
+  }
 }
 
 // Admin gallery actions
-export async function createGalleryImage(data: {
-  title: string
-  description?: string
-  imageUrl: string
-  order: number
-}) {
-  const image = await prisma.galleryImage.create({
-    data,
+export async function createGalleryImage(formData: FormData) {  
+  const title = formData.get('title') as string
+  const description = formData.get('description') as string
+  const imageFile = formData.get('image') as File
+
+  if (!title || !description || !imageFile) {
+    throw new Error('Missing required fields')
+  }
+
+  const imageUrl = await uploadImage(imageFile)
+
+  // Get the highest order number
+  const highestOrder = await prisma.galleryImage.findFirst({
+    orderBy: { order: 'desc' },
+    select: { order: true },
   })
-  return image
+
+  const newOrder = (highestOrder?.order ?? 0) + 1
+
+  return prisma.galleryImage.create({
+    data: {
+      title,
+      description,
+      imageUrl,
+      order: newOrder,
+    },
+  })
 }
 
-export async function updateGalleryImage(data: {
-  id: string
-  title: string
-  description?: string
-  imageUrl: string
-  order: number
-}) {
-  const image = await prisma.galleryImage.update({
-    where: { id: data.id },
+export async function updateGalleryImage(id: string, formData: FormData) {  
+  const title = formData.get('title') as string
+  const description = formData.get('description') as string
+  const imageFile = formData.get('image') as File | null
+
+  if (!title || !description) {
+    throw new Error('Missing required fields')
+  }
+
+  const data: any = {
+    title,
+    description,
+  }
+
+  if (imageFile) {
+    data.imageUrl = await uploadImage(imageFile)
+  }
+
+  return prisma.galleryImage.update({
+    where: { id },
     data,
   })
-  return image
 }
 
-export async function deleteGalleryImage(id: string) {
+export async function deleteGalleryImage(id: string) {  
+  // Get the image to get the image URL
+  const image = await prisma.galleryImage.findUnique({
+    where: { id },
+    select: { imageUrl: true },
+  });
+
+  // Delete the gallery image
   await prisma.galleryImage.delete({
     where: { id },
-  })
+  });
+
+  // Delete the image from blob storage if it exists
+  if (image?.imageUrl) {
+    await deleteBlobImage(image.imageUrl);
+  }
 }
 
 export async function reorderGalleryImages(images: { id: string; order: number }[]) {
@@ -153,4 +231,42 @@ export async function deleteMessage(id: string) {
   await prisma.contactMessage.delete({
     where: { id },
   })
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  'use server'
+  
+  if (!file) {
+    throw new Error('No file provided')
+  }
+
+  const blob = await put(file.name, file, {
+    access: 'public',
+  })
+
+  return blob.url
+}
+
+// Message actions
+export async function markMessagesAsRead(ids: string[]) {
+  'use server';
+  
+  return prisma.contactMessage.updateMany({
+    where: {
+      id: { in: ids },
+    },
+    data: {
+      read: true,
+    },
+  });
+}
+
+export async function deleteMessages(ids: string[]) {
+  'use server';
+  
+  return prisma.contactMessage.deleteMany({
+    where: {
+      id: { in: ids },
+    },
+  });
 } 
