@@ -23,8 +23,7 @@ export default function ContactPage() {
   });
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setStatus('loading');
 
     try {
@@ -81,7 +80,7 @@ export default function ContactPage() {
               borderRadius: 2,
             }}
           >
-            <form onSubmit={(e) => handleSubmit(e)}>
+            <form>
               <Stack spacing={3}>
                 <TextField
                   label="Name"
@@ -117,7 +116,7 @@ export default function ContactPage() {
                 />
 
                 <Button
-                  type="submit"
+                  onClick={() => handleSubmit()}
                   variant="contained"
                   size="large"
                   disabled={status === 'loading'}
