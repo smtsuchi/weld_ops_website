@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import { fetchContact } from '../actions';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -27,13 +28,7 @@ export default function ContactPage() {
     setStatus('loading');
 
     try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetchContact(formData);
 
       if (!response.ok) {
         throw new Error('Failed to send message');
