@@ -81,7 +81,7 @@ export default function ContactPage() {
               borderRadius: 2,
             }}
           >
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={(e) => handleSubmit(e)}>
               <Stack spacing={3}>
                 <TextField
                   label="Name"
@@ -89,7 +89,7 @@ export default function ContactPage() {
                   required
                   fullWidth
                   value={formData.name}
-                  onChange={handleChange}
+                  onChange={(e) => handleChange(e)}
                   variant="outlined"
                 />
 
@@ -100,7 +100,7 @@ export default function ContactPage() {
                   required
                   fullWidth
                   value={formData.email}
-                  onChange={handleChange}
+                  onChange={(e) => handleChange(e)}
                   variant="outlined"
                 />
 
@@ -112,7 +112,7 @@ export default function ContactPage() {
                   multiline
                   rows={4}
                   value={formData.message}
-                  onChange={handleChange}
+                  onChange={(e) => handleChange(e)}
                   variant="outlined"
                 />
 
